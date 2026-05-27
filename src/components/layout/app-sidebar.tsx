@@ -134,6 +134,19 @@ export function AppSidebar({ appName, navItems }: AppSidebarProps) {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
+      {/* Aletheia cross-link — part of the stack */}
+      <div className="border-t border-sidebar-border px-4 py-3">
+        <a
+          href="https://abduljaleel.xyz/aletheia/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="group flex items-center gap-2 text-[10px] uppercase tracking-[0.15em] text-muted-foreground/60 transition-colors hover:text-foreground"
+        >
+          <span className="block h-1.5 w-1.5 rounded-full bg-amber-500/70 group-hover:bg-amber-400" />
+          <span>Part of the Aletheia stack</span>
+          <span className="ml-auto opacity-60 group-hover:opacity-100" aria-hidden>↗</span>
+        </a>
+      </div>
     </Sidebar>
   );
 }
