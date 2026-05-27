@@ -1,225 +1,396 @@
 import Link from "next/link";
 import { appConfig } from "@/lib/config";
 
+const ACCENT = "#5e7cff";
+
 export default function LandingPage() {
   return (
-    <div className="flex min-h-screen flex-col bg-black text-[#e4e4e7]" style={{ fontFamily: "'SF Mono', 'Fira Code', 'Fira Mono', Menlo, Consolas, monospace" }}>
-      {/* Nav */}
-      <header className="border-b border-[#1a1a1a]">
+    <div
+      className="flex min-h-screen flex-col bg-[#08090d] text-[#d4d4d8]"
+      style={{ fontFamily: "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif" }}
+    >
+      {/* ──────────────────────────────────────────────────────────────
+          NAV
+      ────────────────────────────────────────────────────────────── */}
+      <header className="border-b border-[#16181d]">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
           <div className="flex items-center gap-3">
-            <div className="h-2 w-2 rounded-full bg-[#22c55e] animate-pulse" />
-            <span className="text-sm font-semibold tracking-wider text-[#e4e4e7]">neurl</span>
+            <div
+              className="h-2 w-2 rounded-full animate-pulse"
+              style={{ backgroundColor: ACCENT, boxShadow: `0 0 8px ${ACCENT}` }}
+            />
+            <span
+              className="text-base tracking-wide text-[#fafafa]"
+              style={{ fontFamily: "'Cormorant Garamond', 'Iowan Old Style', Georgia, serif", fontWeight: 600 }}
+            >
+              Atlas
+            </span>
+            <span
+              className="text-[10px] uppercase tracking-[0.25em] text-[#52525b] hidden sm:inline"
+              style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
+            >
+              · Singapore
+            </span>
           </div>
           <div className="flex items-center gap-4">
-            <Link href="/login" className="text-xs text-[#555] hover:text-[#22c55e] transition-colors">
-              Sign in
+            <Link
+              href="/login"
+              className="text-xs text-[#71717a] hover:text-[#fafafa] transition-colors"
+              style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
+            >
+              sign in
             </Link>
-            <Link href="/signup" className="text-xs border border-[#22c55e]/40 text-[#22c55e] px-4 py-1.5 hover:bg-[#22c55e]/10 transition-colors">
-              Get started
+            <Link
+              href="/signup"
+              className="text-xs border px-4 py-1.5 transition-colors"
+              style={{
+                fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace",
+                borderColor: `${ACCENT}66`,
+                color: ACCENT,
+              }}
+            >
+              get started
             </Link>
           </div>
         </div>
       </header>
 
-      {/* Hero */}
-      <section className="mx-auto flex max-w-6xl flex-col items-center px-6 pt-32 pb-20 text-center">
+      {/* ──────────────────────────────────────────────────────────────
+          HERO
+      ────────────────────────────────────────────────────────────── */}
+      <section className="mx-auto flex w-full max-w-6xl flex-col items-center px-6 pt-28 pb-16 text-center">
         <div className="flex items-center gap-2 mb-10">
-          <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#22c55e] animate-pulse" style={{ boxShadow: '0 0 8px #22c55e, 0 0 20px #22c55e40' }} />
-          <span className="text-xs tracking-[0.3em] uppercase text-[#22c55e]">System Online</span>
+          <span
+            className="inline-block h-2 w-2 rounded-full animate-pulse"
+            style={{ backgroundColor: ACCENT, boxShadow: `0 0 10px ${ACCENT}` }}
+          />
+          <span
+            className="text-[10px] tracking-[0.3em] uppercase"
+            style={{ color: ACCENT, fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
+          >
+            Governance Layer · System Online
+          </span>
         </div>
-        <h1 className="text-7xl sm:text-8xl lg:text-9xl font-bold tracking-tighter text-white" style={{ fontFamily: "'SF Mono', 'Fira Code', Menlo, monospace", fontWeight: 700 }}>
-          neurl
+
+        <h1
+          className="text-7xl sm:text-8xl lg:text-[10rem] tracking-tight text-white leading-none"
+          style={{ fontFamily: "'Cormorant Garamond', 'Iowan Old Style', Georgia, serif", fontWeight: 500 }}
+        >
+          Atlas
         </h1>
-        <p className="mt-6 text-lg text-[#555] tracking-wide">
-          The control tower for AI traffic
+
+        <p className="mt-8 max-w-2xl text-xl sm:text-2xl text-[#d4d4d8] leading-snug">
+          OS-level process manager for autonomous agents.
         </p>
-      </section>
+        <p
+          className="mt-6 text-sm text-[#71717a]"
+          style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
+        >
+          From Singapore — the port that routes the world.
+        </p>
 
-      {/* Live Traffic Visualization */}
-      <section className="border-t border-[#1a1a1a]">
-        <div className="mx-auto max-w-5xl px-6 py-20">
-          <div className="flex items-center gap-2 mb-8">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-[#22c55e] animate-pulse" />
-            <span className="text-xs text-[#555] uppercase tracking-[0.2em]">Live Traffic</span>
-          </div>
-
-          <div className="space-y-4">
-            {/* Lane 1: GPT-4o */}
-            <div className="flex items-center gap-4">
-              <span className="w-28 text-right text-xs text-[#666] shrink-0">GPT-4o</span>
-              <div className="flex-1 h-8 bg-[#0a0a0a] border border-[#1a1a1a] rounded relative overflow-hidden">
-                <div className="absolute top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-[#22c55e]" style={{ animation: 'slidePacket 2.4s linear infinite', boxShadow: '0 0 6px #22c55e' }} />
-                <div className="absolute top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-[#22c55e]" style={{ animation: 'slidePacket 2.4s linear infinite 0.8s', boxShadow: '0 0 6px #22c55e' }} />
-                <div className="absolute top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-[#22c55e]" style={{ animation: 'slidePacket 2.4s linear infinite 1.6s', boxShadow: '0 0 6px #22c55e' }} />
-              </div>
-            </div>
-
-            {/* Lane 2: Claude 3.5 */}
-            <div className="flex items-center gap-4">
-              <span className="w-28 text-right text-xs text-[#666] shrink-0">Claude 3.5</span>
-              <div className="flex-1 h-8 bg-[#0a0a0a] border border-[#1a1a1a] rounded relative overflow-hidden">
-                <div className="absolute top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-[#22c55e]" style={{ animation: 'slidePacket 1.8s linear infinite', boxShadow: '0 0 6px #22c55e' }} />
-                <div className="absolute top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-[#22c55e]" style={{ animation: 'slidePacket 1.8s linear infinite 0.6s', boxShadow: '0 0 6px #22c55e' }} />
-                <div className="absolute top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-[#22c55e]" style={{ animation: 'slidePacket 1.8s linear infinite 1.2s', boxShadow: '0 0 6px #22c55e' }} />
-              </div>
-            </div>
-
-            {/* Lane 3: Gemini */}
-            <div className="flex items-center gap-4">
-              <span className="w-28 text-right text-xs text-[#666] shrink-0">Gemini</span>
-              <div className="flex-1 h-8 bg-[#0a0a0a] border border-[#1a1a1a] rounded relative overflow-hidden">
-                <div className="absolute top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-[#22c55e]" style={{ animation: 'slidePacket 3.2s linear infinite', boxShadow: '0 0 6px #22c55e' }} />
-                <div className="absolute top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-[#22c55e]" style={{ animation: 'slidePacket 3.2s linear infinite 1.6s', boxShadow: '0 0 6px #22c55e' }} />
-              </div>
-            </div>
-
-            {/* Lane 4: Llama 3 */}
-            <div className="flex items-center gap-4">
-              <span className="w-28 text-right text-xs text-[#666] shrink-0">Llama 3</span>
-              <div className="flex-1 h-8 bg-[#0a0a0a] border border-[#1a1a1a] rounded relative overflow-hidden">
-                <div className="absolute top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-[#22c55e]" style={{ animation: 'slidePacket 2.0s linear infinite', boxShadow: '0 0 6px #22c55e' }} />
-                <div className="absolute top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-[#22c55e]" style={{ animation: 'slidePacket 2.0s linear infinite 1.0s', boxShadow: '0 0 6px #22c55e' }} />
-              </div>
-            </div>
-
-            {/* Lane 5: Mistral */}
-            <div className="flex items-center gap-4">
-              <span className="w-28 text-right text-xs text-[#666] shrink-0">Mistral</span>
-              <div className="flex-1 h-8 bg-[#0a0a0a] border border-[#1a1a1a] rounded relative overflow-hidden">
-                <div className="absolute top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-[#22c55e]" style={{ animation: 'slidePacket 2.8s linear infinite 0.5s', boxShadow: '0 0 6px #22c55e' }} />
-                <div className="absolute top-1/2 -translate-y-1/2 h-1.5 w-1.5 rounded-full bg-[#22c55e]" style={{ animation: 'slidePacket 2.8s linear infinite 1.9s', boxShadow: '0 0 6px #22c55e' }} />
-              </div>
-            </div>
-          </div>
-
-          <p className="mt-8 text-sm text-[#22c55e]" style={{ textShadow: '0 0 10px #22c55e40' }}>
-            1.2M requests routed in the last 24 hours
-          </p>
+        <div
+          className="mt-10 inline-block border-l-2 pl-4 py-1 text-left text-sm text-[#a1a1aa] max-w-md"
+          style={{ borderColor: `${ACCENT}80` }}
+        >
+          &ldquo;Fifty agents touching one repo. Who arbitrates?&rdquo;
         </div>
       </section>
 
-      {/* Terminal Code Block */}
-      <section className="border-t border-[#1a1a1a]">
-        <div className="mx-auto max-w-4xl px-6 py-20">
-          <div className="rounded-lg border border-[#1a1a1a] overflow-hidden" style={{ boxShadow: '0 0 40px rgba(0,0,0,0.5)' }}>
-            {/* Title bar */}
-            <div className="flex items-center gap-2 px-4 py-3 bg-[#0c0c0c] border-b border-[#1a1a1a]">
-              <div className="h-3 w-3 rounded-full bg-[#ff5f57]" />
-              <div className="h-3 w-3 rounded-full bg-[#febc2e]" />
-              <div className="h-3 w-3 rounded-full bg-[#28c840]" />
-              <span className="ml-4 text-xs text-[#555]">Terminal -- neurl</span>
-            </div>
-            {/* Terminal content */}
-            <div className="bg-[#0a0a0a] p-6 text-sm leading-loose">
-              <div>
-                <span className="text-[#555]">$</span>{" "}
-                <span className="text-white">neurl route</span>{" "}
-                <span className="text-[#666]">\</span>
-              </div>
-              <div className="pl-6">
-                <span className="text-[#818cf8]">--model</span>{" "}
-                <span className="text-[#22c55e]">&quot;best&quot;</span>{" "}
-                <span className="text-[#666]">\</span>
-              </div>
-              <div className="pl-6">
-                <span className="text-[#818cf8]">--budget</span>{" "}
-                <span className="text-[#22c55e]">&quot;$0.05&quot;</span>{" "}
-                <span className="text-[#666]">\</span>
-              </div>
-              <div className="pl-6">
-                <span className="text-[#818cf8]">--latency</span>{" "}
-                <span className="text-[#22c55e]">&quot;&lt;500ms&quot;</span>{" "}
-                <span className="text-[#666]">\</span>
-              </div>
-              <div className="pl-6">
-                <span className="text-[#818cf8]">--fallback</span>{" "}
-                <span className="text-[#22c55e]">&quot;gpt-4o-mini&quot;</span>
-              </div>
-              <div className="mt-4 border-t border-[#1a1a1a] pt-4">
-                <span className="text-[#22c55e]">{"→"}</span>{" "}
-                <span className="text-[#e4e4e7]">Routed to</span>{" "}
-                <span className="text-white font-semibold">claude-3.5-sonnet</span>{" "}
-                <span className="text-[#555]">(</span>
-                <span className="text-[#f59e0b]">340ms</span>
-                <span className="text-[#555]">,</span>{" "}
-                <span className="text-[#22c55e]">$0.003</span>
-                <span className="text-[#555]">)</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Features as Terminal Commands */}
-      <section className="border-t border-[#1a1a1a]">
+      {/* ──────────────────────────────────────────────────────────────
+          PROCESS TREE — root + 5 fanning out
+      ────────────────────────────────────────────────────────────── */}
+      <section className="border-t border-[#16181d]">
         <div className="mx-auto max-w-5xl px-6 py-20">
-          <div className="grid gap-4 md:grid-cols-2">
-            {[
-              { cmd: "neurl models", label: "Model Registry", desc: "Unified catalog of every model. Capabilities, pricing, latency benchmarks." },
-              { cmd: "neurl policies", label: "Policy Engine", desc: "Priority-ordered rules. Cost ceilings, latency guards, content routing." },
-              { cmd: "neurl logs", label: "Request Logs", desc: "Full request-level traces. Latency, tokens, cost, policy decisions." },
-              { cmd: "neurl costs", label: "Cost Analytics", desc: "Spend per model, per key, per team. Budgets and alerts." },
-            ].map((f) => (
-              <div key={f.cmd} className="border border-[#1a1a1a] bg-[#0a0a0a] p-5 hover:border-[#22c55e]/30 transition-colors group">
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-[#555]">$</span>
-                  <span className="text-[#22c55e] text-sm group-hover:text-white transition-colors">{f.cmd}</span>
+          <div className="flex items-center justify-between mb-10">
+            <div className="flex items-center gap-2">
+              <span
+                className="inline-block h-1.5 w-1.5 rounded-full animate-pulse"
+                style={{ backgroundColor: ACCENT }}
+              />
+              <span
+                className="text-[10px] uppercase tracking-[0.25em] text-[#71717a]"
+                style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
+              >
+                /proc — active agent tree
+              </span>
+            </div>
+            <span
+              className="text-[10px] uppercase tracking-[0.25em] text-[#52525b]"
+              style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
+            >
+              tick 0x3a91
+            </span>
+          </div>
+
+          <div className="rounded-md border border-[#16181d] bg-[#0a0c11] p-6 sm:p-10">
+            {/* Tree visualization with SVG connectors */}
+            <div className="relative">
+              {/* Root node */}
+              <div className="flex justify-center mb-12">
+                <div
+                  className="rounded-md border bg-[#0e1118] px-5 py-3 min-w-[240px]"
+                  style={{ borderColor: ACCENT, boxShadow: `0 0 24px ${ACCENT}30` }}
+                >
+                  <div className="flex items-center justify-between gap-4 mb-2">
+                    <span
+                      className="text-[10px] uppercase tracking-[0.2em]"
+                      style={{ color: ACCENT, fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
+                    >
+                      ROOT · PID 0x00
+                    </span>
+                    <span
+                      className="text-[10px] px-1.5 py-0.5 rounded-sm"
+                      style={{
+                        background: `${ACCENT}22`,
+                        color: ACCENT,
+                        fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace",
+                      }}
+                    >
+                      arbiter
+                    </span>
+                  </div>
+                  <div className="text-sm text-white">orchestrator.main</div>
+                  <div
+                    className="mt-2 flex items-center gap-2 text-[10px] text-[#71717a]"
+                    style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
+                  >
+                    <span>ctx</span>
+                    <div className="flex-1 h-1 bg-[#16181d] rounded-sm overflow-hidden">
+                      <div className="h-full" style={{ width: "32%", background: ACCENT }} />
+                    </div>
+                    <span>32 / 100</span>
+                  </div>
                 </div>
-                <div className="text-white text-sm font-semibold mb-1">{f.label}</div>
-                <div className="text-xs text-[#555] leading-relaxed">{f.desc}</div>
+              </div>
+
+              {/* Connector lines (SVG) */}
+              <svg
+                className="absolute left-0 right-0 mx-auto pointer-events-none"
+                width="100%"
+                height="60"
+                style={{ top: "85px" }}
+                viewBox="0 0 800 60"
+                preserveAspectRatio="none"
+              >
+                <line x1="400" y1="0" x2="80" y2="60" stroke={`${ACCENT}60`} strokeWidth="1" />
+                <line x1="400" y1="0" x2="240" y2="60" stroke={`${ACCENT}60`} strokeWidth="1" />
+                <line x1="400" y1="0" x2="400" y2="60" stroke={`${ACCENT}60`} strokeWidth="1" />
+                <line x1="400" y1="0" x2="560" y2="60" stroke={`${ACCENT}60`} strokeWidth="1" />
+                <line x1="400" y1="0" x2="720" y2="60" stroke={`${ACCENT}60`} strokeWidth="1" />
+              </svg>
+
+              {/* Child nodes — 5 fanning out */}
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mt-4">
+                {[
+                  { pid: "0x01", name: "schema.migrate", status: "running", color: "#22c55e", ctx: 18, lock: "db/schema.sql" },
+                  { pid: "0x02", name: "test.runner", status: "running", color: "#22c55e", ctx: 41, lock: "tests/*" },
+                  { pid: "0x03", name: "build.compile", status: "waiting", color: "#eab308", ctx: 67, lock: "queued" },
+                  { pid: "0x04", name: "deploy.prepare", status: "blocked", color: "#ef4444", ctx: 12, lock: "waits 0x01" },
+                  { pid: "0x05", name: "docs.update", status: "running", color: "#22c55e", ctx: 23, lock: "README.md" },
+                ].map((p) => (
+                  <div
+                    key={p.pid}
+                    className="rounded-md border border-[#16181d] bg-[#0e1118] p-3 hover:border-[#5e7cff]/40 transition-colors"
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span
+                        className="text-[9px] uppercase tracking-[0.15em] text-[#71717a]"
+                        style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
+                      >
+                        PID {p.pid}
+                      </span>
+                      <span
+                        className="inline-block h-1.5 w-1.5 rounded-full"
+                        style={{ backgroundColor: p.color, boxShadow: `0 0 6px ${p.color}` }}
+                      />
+                    </div>
+                    <div
+                      className="text-xs text-white mb-2 truncate"
+                      style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
+                    >
+                      {p.name}
+                    </div>
+                    <div
+                      className="flex items-center gap-1.5 text-[9px] text-[#71717a]"
+                      style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
+                    >
+                      <div className="flex-1 h-1 bg-[#16181d] rounded-sm overflow-hidden">
+                        <div className="h-full" style={{ width: `${p.ctx}%`, background: p.color }} />
+                      </div>
+                      <span>{p.ctx}%</span>
+                    </div>
+                    <div
+                      className="mt-2 text-[9px] text-[#52525b] truncate"
+                      style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
+                      title={p.lock}
+                    >
+                      &gt; {p.lock}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ──────────────────────────────────────────────────────────────
+          CAPABILITIES — 4 cards with monospace command headers
+      ────────────────────────────────────────────────────────────── */}
+      <section className="border-t border-[#16181d]">
+        <div className="mx-auto max-w-6xl px-6 py-20">
+          <p
+            className="text-[10px] uppercase tracking-[0.3em] text-[#71717a] mb-10 text-center"
+            style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
+          >
+            Four primitives
+          </p>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            {[
+              {
+                cmd: "atlas.spawn()",
+                label: "Process arbitration",
+                desc: "One orchestrator. Many agents. Atlas decides who runs when, and who must wait.",
+              },
+              {
+                cmd: "atlas.lock()",
+                label: "File-level locking",
+                desc: "Two agents cannot edit one file at once. Atlas enforces it at the filesystem boundary.",
+              },
+              {
+                cmd: "atlas.budget()",
+                label: "Context budgets",
+                desc: "Every agent has a token ceiling. Atlas evicts, summarizes, or refuses on overflow.",
+              },
+              {
+                cmd: "atlas.route()",
+                label: "Tier routing",
+                desc: "Cheap models for grep, frontier models for design. Routed by intent, not by hand.",
+              },
+            ].map((f) => (
+              <div
+                key={f.cmd}
+                className="border border-[#16181d] bg-[#0a0c11] p-5 hover:border-[#5e7cff]/40 transition-colors group"
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-[#52525b]" style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}>
+                    &gt;
+                  </span>
+                  <span
+                    className="text-sm group-hover:text-white transition-colors"
+                    style={{ color: ACCENT, fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
+                  >
+                    {f.cmd}
+                  </span>
+                </div>
+                <div className="text-white text-sm font-medium mb-2">{f.label}</div>
+                <div className="text-xs text-[#71717a] leading-relaxed">{f.desc}</div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* Architecture Flow - ASCII style */}
-      <section className="border-t border-[#1a1a1a] bg-[#050505]">
+      {/* ──────────────────────────────────────────────────────────────
+          STATS
+      ────────────────────────────────────────────────────────────── */}
+      <section className="border-t border-[#16181d]" style={{ background: "#06070a" }}>
         <div className="mx-auto max-w-5xl px-6 py-20">
-          <p className="text-xs text-[#555] uppercase tracking-[0.2em] mb-10 text-center">Architecture</p>
-          <div className="overflow-x-auto">
-            <pre className="text-sm text-center leading-relaxed whitespace-pre">
-<span className="text-[#555]">{"   "}+-----------+{"       "}+----------------+{"       "}+---------------+{"       "}+------------+</span>{"\n"}
-<span className="text-[#e4e4e7]">{"   "}|</span> <span className="text-white">Your App</span> <span className="text-[#e4e4e7]">|</span><span className="text-[#22c55e]">{"  "}----&gt;{"  "}</span><span className="text-[#e4e4e7]">|</span> <span className="text-[#22c55e]">Neurl Gateway</span> <span className="text-[#e4e4e7]">|</span><span className="text-[#22c55e]">{"  "}----&gt;{"  "}</span><span className="text-[#e4e4e7]">|</span> <span className="text-[#f59e0b]">Policy Engine</span> <span className="text-[#e4e4e7]">|</span><span className="text-[#22c55e]">{"  "}----&gt;{"  "}</span><span className="text-[#e4e4e7]">|</span> <span className="text-[#818cf8]">AI Models</span> <span className="text-[#e4e4e7]">|</span>{"\n"}
-<span className="text-[#555]">{"   "}+-----------+{"       "}+----------------+{"       "}+---------------+{"       "}+------------+</span>{"\n"}
-<span className="text-[#555]">{"     "}SDK / HTTP{"          "}Route + Observe{"           "}Rules + Guards{"          "}GPT / Claude</span>
-            </pre>
+          <div className="grid gap-12 md:grid-cols-2 text-center md:text-left">
+            <div>
+              <div
+                className="text-5xl sm:text-6xl text-white tracking-tight"
+                style={{ fontFamily: "'Cormorant Garamond', 'Iowan Old Style', Georgia, serif", fontWeight: 500 }}
+              >
+                1.2M
+              </div>
+              <div
+                className="mt-3 text-xs uppercase tracking-[0.25em] text-[#71717a]"
+                style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
+              >
+                agent-hours arbitrated
+              </div>
+            </div>
+            <div>
+              <div
+                className="text-5xl sm:text-6xl text-white tracking-tight"
+                style={{ fontFamily: "'Cormorant Garamond', 'Iowan Old Style', Georgia, serif", fontWeight: 500 }}
+              >
+                <span style={{ color: ACCENT }}>0</span>
+              </div>
+              <div
+                className="mt-3 text-xs uppercase tracking-[0.25em] text-[#71717a]"
+                style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
+              >
+                file conflicts in production
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* CTA */}
-      <section className="border-t border-[#1a1a1a]">
-        <div className="mx-auto max-w-6xl px-6 py-28 text-center">
-          <p className="text-[#555] text-sm mb-6">One gateway. Every model. Full control.</p>
+      {/* ──────────────────────────────────────────────────────────────
+          CTA + ALETHEIA LINK
+      ────────────────────────────────────────────────────────────── */}
+      <section className="border-t border-[#16181d]">
+        <div className="mx-auto max-w-6xl px-6 py-24 text-center">
+          <p
+            className="text-[10px] uppercase tracking-[0.3em] text-[#71717a] mb-6"
+            style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
+          >
+            Run the orchestrator
+          </p>
           <Link
             href="/signup"
-            className="inline-block border border-[#22c55e] text-[#22c55e] px-8 py-3 text-sm hover:bg-[#22c55e] hover:text-black transition-all duration-200"
-            style={{ boxShadow: '0 0 20px #22c55e20' }}
+            className="inline-block border px-8 py-3 text-sm transition-all duration-200 hover:bg-opacity-10"
+            style={{
+              fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace",
+              borderColor: ACCENT,
+              color: ACCENT,
+              boxShadow: `0 0 20px ${ACCENT}30`,
+            }}
           >
-            Deploy your gateway {"→"}
+            $ atlas init →
           </Link>
         </div>
       </section>
 
-      {/* Footer */}
-      <footer className="border-t border-[#1a1a1a]">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6 text-xs text-[#333]">
-          <span>&copy; {new Date().getFullYear()} {appConfig.name}</span>
-          <span>A 12 Cities venture</span>
+      {/* ──────────────────────────────────────────────────────────────
+          FOOTER
+      ────────────────────────────────────────────────────────────── */}
+      <footer className="border-t border-[#16181d]">
+        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-8 sm:flex-row sm:items-center sm:justify-between">
+          <div
+            className="text-xs text-[#52525b]"
+            style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
+          >
+            <span
+              className="text-[#a1a1aa]"
+              style={{ fontFamily: "'Cormorant Garamond', 'Iowan Old Style', Georgia, serif", fontWeight: 600, fontSize: "0.9rem" }}
+            >
+              {appConfig.name}
+            </span>
+            <span className="mx-2">·</span>
+            <span>Singapore</span>
+            <span className="mx-2">·</span>
+            <span>atlas.sg</span>
+          </div>
+          <a
+            href="https://abduljaleel.xyz/aletheia/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.25em] px-3 py-1.5 border transition-colors hover:bg-opacity-10"
+            style={{
+              fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace",
+              borderColor: `${ACCENT}40`,
+              color: ACCENT,
+            }}
+          >
+            Part of the Aletheia stack ↗
+          </a>
         </div>
       </footer>
-
-      {/* CSS Animations */}
-      <style jsx global>{`
-        @keyframes slidePacket {
-          0% { left: -4px; opacity: 0; }
-          5% { opacity: 1; }
-          95% { opacity: 1; }
-          100% { left: calc(100% + 4px); opacity: 0; }
-        }
-      `}</style>
     </div>
   );
 }

@@ -1,7 +1,7 @@
 export const appConfig = {
-  name: "Neurl",
-  description: "The airport for intelligence. Route AI traffic with control.",
-  url: "https://neurl.sg",
+  name: "Atlas",
+  description: "OS-level process manager for autonomous agents. From Singapore.",
+  url: "https://atlas.sg",
   navItems: [
     { title: "Dashboard", href: "/dashboard", icon: "dashboard" },
     { title: "Models", href: "/models", icon: "brain" },
