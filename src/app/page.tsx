@@ -2,390 +2,398 @@ import Link from "next/link";
 import { appConfig } from "@/lib/config";
 
 const ACCENT = "#5e7cff";
+const MONO =
+  "'SF Mono', ui-monospace, 'JetBrains Mono', 'Menlo', 'Consolas', monospace";
+
+// ── fake process table data ────────────────────────────────────────────────
+type Proc = {
+  pid: string;
+  agent: string;
+  model: string;
+  ctx: number;
+  state: "RUNNING" | "WAITING" | "BLOCKED";
+  arbiter?: boolean;
+};
+
+const PROCS: Proc[] = [
+  { pid: "0x1a3f", agent: "atlas-scheduler", model: "atlas-core", ctx: 44, state: "RUNNING", arbiter: true },
+  { pid: "0x2b07", agent: "refactor-auth", model: "claude", ctx: 78, state: "RUNNING" },
+  { pid: "0x2b11", agent: "migrate-schema", model: "claude", ctx: 31, state: "RUNNING" },
+  { pid: "0x3c4a", agent: "write-tests", model: "haiku", ctx: 92, state: "WAITING" },
+  { pid: "0x3c80", agent: "doc-generator", model: "haiku", ctx: 12, state: "RUNNING" },
+  { pid: "0x44d2", agent: "deploy-runner", model: "gpt-4o", ctx: 57, state: "BLOCKED" },
+  { pid: "0x51e9", agent: "lint-sweep", model: "haiku", ctx: 8, state: "WAITING" },
+  { pid: "0x5a2c", agent: "index-embeddings", model: "embed-3", ctx: 66, state: "RUNNING" },
+];
+
+const STATE_COLOR: Record<Proc["state"], string> = {
+  RUNNING: "#3ddc84",
+  WAITING: "#e3b341",
+  BLOCKED: "#f0556a",
+};
+
+const SYSCALLS: { call: string; desc: string }[] = [
+  { call: "atlas.spawn()", desc: "fork a new agent into the supervised process tree" },
+  { call: "atlas.lock(file)", desc: "acquire an exclusive write-lease on a path" },
+  { call: "atlas.budget(ctx)", desc: "cap token spend; evict on overflow" },
+  { call: "atlas.route(tier)", desc: "dispatch work to the cheapest viable model" },
+];
+
+function CtxBar({ value }: { value: number }) {
+  const color = value >= 85 ? "#f0556a" : value >= 60 ? "#e3b341" : ACCENT;
+  const cells = 16;
+  const filled = Math.round((value / 100) * cells);
+  return (
+    <span className="inline-flex items-center gap-2 align-middle">
+      <span className="inline-flex gap-[2px]">
+        {Array.from({ length: cells }).map((_, i) => (
+          <span
+            key={i}
+            className="inline-block h-[9px] w-[5px]"
+            style={{
+              backgroundColor: i < filled ? color : "#1a1d26",
+              boxShadow: i < filled ? `0 0 4px ${color}55` : "none",
+            }}
+          />
+        ))}
+      </span>
+      <span style={{ color: "#6b7180" }}>{value}%</span>
+    </span>
+  );
+}
 
 export default function LandingPage() {
   return (
     <div
-      className="flex min-h-screen flex-col bg-[#08090d] text-[#d4d4d8]"
-      style={{ fontFamily: "ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif" }}
+      className="min-h-screen bg-[#050608] text-[#c2c6d0] selection:bg-[#5e7cff] selection:text-black"
+      style={{ fontFamily: MONO, fontSize: "13px" }}
     >
-      {/* ──────────────────────────────────────────────────────────────
-          NAV
-      ────────────────────────────────────────────────────────────── */}
-      <header className="border-b border-[#16181d]">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-6">
-          <div className="flex items-center gap-3">
-            <div
-              className="h-2 w-2 rounded-full animate-pulse"
-              style={{ backgroundColor: ACCENT, boxShadow: `0 0 8px ${ACCENT}` }}
+      {/* ══════════════════════════════════════════════════════════════
+          TOP STATUS BAR — terminal title bar
+      ══════════════════════════════════════════════════════════════ */}
+      <header
+        className="sticky top-0 z-50 border-b border-[#16191f] bg-[#070809]/95 backdrop-blur"
+        style={{ boxShadow: "0 1px 0 #000" }}
+      >
+        <div className="flex items-center justify-between gap-4 px-3 py-1.5 text-[11px] sm:px-4">
+          {/* left: identity + online dot */}
+          <div className="flex items-center gap-2 whitespace-nowrap">
+            <span className="flex items-center gap-1.5">
+              <span className="hidden sm:flex gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full bg-[#f0556a]" />
+                <span className="h-2.5 w-2.5 rounded-full bg-[#e3b341]" />
+                <span className="h-2.5 w-2.5 rounded-full bg-[#3ddc84]" />
+              </span>
+            </span>
+            <span className="font-bold tracking-[0.2em] text-[#eef0f4]">ATLAS</span>
+            <span
+              className="h-2 w-2 animate-pulse rounded-full bg-[#3ddc84]"
+              style={{ boxShadow: "0 0 7px #3ddc84" }}
             />
-            <span
-              className="text-base tracking-wide text-[#fafafa]"
-              style={{ fontFamily: "'Cormorant Garamond', 'Iowan Old Style', Georgia, serif", fontWeight: 600 }}
-            >
-              Atlas
-            </span>
-            <span
-              className="text-[10px] uppercase tracking-[0.25em] text-[#52525b] hidden sm:inline"
-              style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
-            >
-              · Singapore
-            </span>
+            <span className="hidden text-[#3ddc84] sm:inline">SYSTEM NOMINAL</span>
           </div>
-          <div className="flex items-center gap-4">
+
+          {/* center: fake live telemetry */}
+          <div className="hidden items-center gap-3 text-[#5a6070] md:flex">
+            <span>UPTIME <span className="text-[#9aa0b0]">99.99%</span></span>
+            <span className="text-[#2a2e38]">│</span>
+            <span><span className="text-[#9aa0b0]">1.2M</span> PROC/24H</span>
+            <span className="text-[#2a2e38]">│</span>
+            <span>LOAD <span style={{ color: ACCENT }}>0.42</span></span>
+          </div>
+
+          {/* right: auth */}
+          <div className="flex items-center gap-2 whitespace-nowrap">
             <Link
               href="/login"
-              className="text-xs text-[#71717a] hover:text-[#fafafa] transition-colors"
-              style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
+              className="px-2 py-0.5 text-[#8a90a0] transition-colors hover:text-[#eef0f4]"
             >
-              sign in
+              [ sign_in ]
             </Link>
             <Link
               href="/signup"
-              className="text-xs border px-4 py-1.5 transition-colors"
-              style={{
-                fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace",
-                borderColor: `${ACCENT}66`,
-                color: ACCENT,
-              }}
+              className="border px-2 py-0.5 transition-colors hover:bg-[#5e7cff] hover:text-black"
+              style={{ borderColor: `${ACCENT}77`, color: ACCENT }}
             >
-              get started
+              get_started ↵
             </Link>
           </div>
         </div>
       </header>
 
-      {/* ──────────────────────────────────────────────────────────────
-          HERO
-      ────────────────────────────────────────────────────────────── */}
-      <section className="mx-auto flex w-full max-w-6xl flex-col items-center px-6 pt-28 pb-16 text-center">
-        <div className="flex items-center gap-2 mb-10">
-          <span
-            className="inline-block h-2 w-2 rounded-full animate-pulse"
-            style={{ backgroundColor: ACCENT, boxShadow: `0 0 10px ${ACCENT}` }}
-          />
-          <span
-            className="text-[10px] tracking-[0.3em] uppercase"
-            style={{ color: ACCENT, fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
-          >
-            Governance Layer · System Online
-          </span>
-        </div>
-
-        <h1
-          className="text-7xl sm:text-8xl lg:text-[10rem] tracking-tight text-white leading-none"
-          style={{ fontFamily: "'Cormorant Garamond', 'Iowan Old Style', Georgia, serif", fontWeight: 500 }}
+      <main className="mx-auto max-w-[1180px] px-3 py-4 sm:px-4">
+        {/* ══════════════════════════════════════════════════════════════
+            HERO — simulated live console (htop-style)
+        ══════════════════════════════════════════════════════════════ */}
+        <section
+          className="border bg-[#070809]"
+          style={{ borderColor: "#181b22" }}
         >
-          Atlas
-        </h1>
-
-        <p className="mt-8 max-w-2xl text-xl sm:text-2xl text-[#d4d4d8] leading-snug">
-          OS-level process manager for autonomous agents.
-        </p>
-        <p
-          className="mt-6 text-sm text-[#71717a]"
-          style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
-        >
-          From Singapore — the port that routes the world.
-        </p>
-
-        <div
-          className="mt-10 inline-block border-l-2 pl-4 py-1 text-left text-sm text-[#a1a1aa] max-w-md"
-          style={{ borderColor: `${ACCENT}80` }}
-        >
-          &ldquo;Fifty agents touching one repo. Who arbitrates?&rdquo;
-        </div>
-      </section>
-
-      {/* ──────────────────────────────────────────────────────────────
-          PROCESS TREE — root + 5 fanning out
-      ────────────────────────────────────────────────────────────── */}
-      <section className="border-t border-[#16181d]">
-        <div className="mx-auto max-w-5xl px-6 py-20">
-          <div className="flex items-center justify-between mb-10">
-            <div className="flex items-center gap-2">
-              <span
-                className="inline-block h-1.5 w-1.5 rounded-full animate-pulse"
-                style={{ backgroundColor: ACCENT }}
-              />
-              <span
-                className="text-[10px] uppercase tracking-[0.25em] text-[#71717a]"
-                style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
-              >
-                /proc — active agent tree
-              </span>
-            </div>
-            <span
-              className="text-[10px] uppercase tracking-[0.25em] text-[#52525b]"
-              style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
-            >
-              tick 0x3a91
-            </span>
-          </div>
-
-          <div className="rounded-md border border-[#16181d] bg-[#0a0c11] p-6 sm:p-10">
-            {/* Tree visualization with SVG connectors */}
-            <div className="relative">
-              {/* Root node */}
-              <div className="flex justify-center mb-12">
-                <div
-                  className="rounded-md border bg-[#0e1118] px-5 py-3 min-w-[240px]"
-                  style={{ borderColor: ACCENT, boxShadow: `0 0 24px ${ACCENT}30` }}
-                >
-                  <div className="flex items-center justify-between gap-4 mb-2">
-                    <span
-                      className="text-[10px] uppercase tracking-[0.2em]"
-                      style={{ color: ACCENT, fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
-                    >
-                      ROOT · PID 0x00
-                    </span>
-                    <span
-                      className="text-[10px] px-1.5 py-0.5 rounded-sm"
-                      style={{
-                        background: `${ACCENT}22`,
-                        color: ACCENT,
-                        fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace",
-                      }}
-                    >
-                      arbiter
-                    </span>
-                  </div>
-                  <div className="text-sm text-white">orchestrator.main</div>
-                  <div
-                    className="mt-2 flex items-center gap-2 text-[10px] text-[#71717a]"
-                    style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
-                  >
-                    <span>ctx</span>
-                    <div className="flex-1 h-1 bg-[#16181d] rounded-sm overflow-hidden">
-                      <div className="h-full" style={{ width: "32%", background: ACCENT }} />
-                    </div>
-                    <span>32 / 100</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Connector lines (SVG) */}
-              <svg
-                className="absolute left-0 right-0 mx-auto pointer-events-none"
-                width="100%"
-                height="60"
-                style={{ top: "85px" }}
-                viewBox="0 0 800 60"
-                preserveAspectRatio="none"
-              >
-                <line x1="400" y1="0" x2="80" y2="60" stroke={`${ACCENT}60`} strokeWidth="1" />
-                <line x1="400" y1="0" x2="240" y2="60" stroke={`${ACCENT}60`} strokeWidth="1" />
-                <line x1="400" y1="0" x2="400" y2="60" stroke={`${ACCENT}60`} strokeWidth="1" />
-                <line x1="400" y1="0" x2="560" y2="60" stroke={`${ACCENT}60`} strokeWidth="1" />
-                <line x1="400" y1="0" x2="720" y2="60" stroke={`${ACCENT}60`} strokeWidth="1" />
-              </svg>
-
-              {/* Child nodes — 5 fanning out */}
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mt-4">
-                {[
-                  { pid: "0x01", name: "schema.migrate", status: "running", color: "#22c55e", ctx: 18, lock: "db/schema.sql" },
-                  { pid: "0x02", name: "test.runner", status: "running", color: "#22c55e", ctx: 41, lock: "tests/*" },
-                  { pid: "0x03", name: "build.compile", status: "waiting", color: "#eab308", ctx: 67, lock: "queued" },
-                  { pid: "0x04", name: "deploy.prepare", status: "blocked", color: "#ef4444", ctx: 12, lock: "waits 0x01" },
-                  { pid: "0x05", name: "docs.update", status: "running", color: "#22c55e", ctx: 23, lock: "README.md" },
-                ].map((p) => (
-                  <div
-                    key={p.pid}
-                    className="rounded-md border border-[#16181d] bg-[#0e1118] p-3 hover:border-[#5e7cff]/40 transition-colors"
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <span
-                        className="text-[9px] uppercase tracking-[0.15em] text-[#71717a]"
-                        style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
-                      >
-                        PID {p.pid}
-                      </span>
-                      <span
-                        className="inline-block h-1.5 w-1.5 rounded-full"
-                        style={{ backgroundColor: p.color, boxShadow: `0 0 6px ${p.color}` }}
-                      />
-                    </div>
-                    <div
-                      className="text-xs text-white mb-2 truncate"
-                      style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
-                    >
-                      {p.name}
-                    </div>
-                    <div
-                      className="flex items-center gap-1.5 text-[9px] text-[#71717a]"
-                      style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
-                    >
-                      <div className="flex-1 h-1 bg-[#16181d] rounded-sm overflow-hidden">
-                        <div className="h-full" style={{ width: `${p.ctx}%`, background: p.color }} />
-                      </div>
-                      <span>{p.ctx}%</span>
-                    </div>
-                    <div
-                      className="mt-2 text-[9px] text-[#52525b] truncate"
-                      style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
-                      title={p.lock}
-                    >
-                      &gt; {p.lock}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ──────────────────────────────────────────────────────────────
-          CAPABILITIES — 4 cards with monospace command headers
-      ────────────────────────────────────────────────────────────── */}
-      <section className="border-t border-[#16181d]">
-        <div className="mx-auto max-w-6xl px-6 py-20">
-          <p
-            className="text-[10px] uppercase tracking-[0.3em] text-[#71717a] mb-10 text-center"
-            style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
-          >
-            Four primitives
-          </p>
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {[
-              {
-                cmd: "atlas.spawn()",
-                label: "Process arbitration",
-                desc: "One orchestrator. Many agents. Atlas decides who runs when, and who must wait.",
-              },
-              {
-                cmd: "atlas.lock()",
-                label: "File-level locking",
-                desc: "Two agents cannot edit one file at once. Atlas enforces it at the filesystem boundary.",
-              },
-              {
-                cmd: "atlas.budget()",
-                label: "Context budgets",
-                desc: "Every agent has a token ceiling. Atlas evicts, summarizes, or refuses on overflow.",
-              },
-              {
-                cmd: "atlas.route()",
-                label: "Tier routing",
-                desc: "Cheap models for grep, frontier models for design. Routed by intent, not by hand.",
-              },
-            ].map((f) => (
-              <div
-                key={f.cmd}
-                className="border border-[#16181d] bg-[#0a0c11] p-5 hover:border-[#5e7cff]/40 transition-colors group"
-              >
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-[#52525b]" style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}>
-                    &gt;
-                  </span>
-                  <span
-                    className="text-sm group-hover:text-white transition-colors"
-                    style={{ color: ACCENT, fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
-                  >
-                    {f.cmd}
-                  </span>
-                </div>
-                <div className="text-white text-sm font-medium mb-2">{f.label}</div>
-                <div className="text-xs text-[#71717a] leading-relaxed">{f.desc}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ──────────────────────────────────────────────────────────────
-          STATS
-      ────────────────────────────────────────────────────────────── */}
-      <section className="border-t border-[#16181d]" style={{ background: "#06070a" }}>
-        <div className="mx-auto max-w-5xl px-6 py-20">
-          <div className="grid gap-12 md:grid-cols-2 text-center md:text-left">
-            <div>
-              <div
-                className="text-5xl sm:text-6xl text-white tracking-tight"
-                style={{ fontFamily: "'Cormorant Garamond', 'Iowan Old Style', Georgia, serif", fontWeight: 500 }}
-              >
-                1.2M
-              </div>
-              <div
-                className="mt-3 text-xs uppercase tracking-[0.25em] text-[#71717a]"
-                style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
-              >
-                agent-hours arbitrated
-              </div>
-            </div>
-            <div>
-              <div
-                className="text-5xl sm:text-6xl text-white tracking-tight"
-                style={{ fontFamily: "'Cormorant Garamond', 'Iowan Old Style', Georgia, serif", fontWeight: 500 }}
-              >
-                <span style={{ color: ACCENT }}>0</span>
-              </div>
-              <div
-                className="mt-3 text-xs uppercase tracking-[0.25em] text-[#71717a]"
-                style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
-              >
-                file conflicts in production
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ──────────────────────────────────────────────────────────────
-          CTA + ALETHEIA LINK
-      ────────────────────────────────────────────────────────────── */}
-      <section className="border-t border-[#16181d]">
-        <div className="mx-auto max-w-6xl px-6 py-24 text-center">
-          <p
-            className="text-[10px] uppercase tracking-[0.3em] text-[#71717a] mb-6"
-            style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
-          >
-            Run the orchestrator
-          </p>
-          <Link
-            href="/signup"
-            className="inline-block border px-8 py-3 text-sm transition-all duration-200 hover:bg-opacity-10"
-            style={{
-              fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace",
-              borderColor: ACCENT,
-              color: ACCENT,
-              boxShadow: `0 0 20px ${ACCENT}30`,
-            }}
-          >
-            $ atlas init →
-          </Link>
-        </div>
-      </section>
-
-      {/* ──────────────────────────────────────────────────────────────
-          FOOTER
-      ────────────────────────────────────────────────────────────── */}
-      <footer className="border-t border-[#16181d]">
-        <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-8 sm:flex-row sm:items-center sm:justify-between">
+          {/* panel chrome */}
           <div
-            className="text-xs text-[#52525b]"
-            style={{ fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace" }}
+            className="flex items-center justify-between border-b px-3 py-1.5 text-[11px]"
+            style={{ borderColor: "#181b22", color: "#5a6070" }}
           >
-            <span
-              className="text-[#a1a1aa]"
-              style={{ fontFamily: "'Cormorant Garamond', 'Iowan Old Style', Georgia, serif", fontWeight: 600, fontSize: "0.9rem" }}
-            >
-              {appConfig.name}
+            <span>
+              <span style={{ color: ACCENT }}>atlas</span>
+              <span className="text-[#3a3f4a]">@</span>
+              <span className="text-[#9aa0b0]">scheduler</span>
+              <span className="text-[#3a3f4a]"> ~ </span>
+              <span className="text-[#6b7180]">top --agents --watch</span>
             </span>
-            <span className="mx-2">·</span>
-            <span>Singapore</span>
-            <span className="mx-2">·</span>
-            <span>atlas.sg</span>
+            <span className="hidden sm:inline">
+              tasks: <span className="text-[#9aa0b0]">8</span> · running{" "}
+              <span className="text-[#3ddc84]">5</span> · blocked{" "}
+              <span className="text-[#f0556a]">1</span>
+            </span>
           </div>
+
+          {/* table header row */}
+          <div className="overflow-x-auto">
+            <div className="min-w-[680px]">
+              <div
+                className="grid items-center gap-2 border-b px-3 py-1.5 text-[11px] uppercase tracking-wider"
+                style={{
+                  gridTemplateColumns: "84px 1.4fr 92px 200px 96px",
+                  borderColor: "#181b22",
+                  background: "#0b0d12",
+                  color: "#5a6070",
+                }}
+              >
+                <span>PID</span>
+                <span>AGENT</span>
+                <span>MODEL</span>
+                <span>CTX%</span>
+                <span className="text-right">STATE</span>
+              </div>
+
+              {/* process rows */}
+              {PROCS.map((p) => (
+                <div
+                  key={p.pid}
+                  className="grid items-center gap-2 px-3 py-[7px] text-[12.5px] transition-colors"
+                  style={{
+                    gridTemplateColumns: "84px 1.4fr 92px 200px 96px",
+                    borderBottom: "1px solid #0e1015",
+                    background: p.arbiter ? `${ACCENT}14` : "transparent",
+                    borderLeft: p.arbiter ? `2px solid ${ACCENT}` : "2px solid transparent",
+                  }}
+                >
+                  <span style={{ color: p.arbiter ? ACCENT : "#6b7180" }}>{p.pid}</span>
+                  <span className="flex items-center gap-2 truncate">
+                    <span style={{ color: p.arbiter ? "#eef0f4" : "#c2c6d0" }}>
+                      {p.agent}
+                    </span>
+                    {p.arbiter && (
+                      <span
+                        className="rounded-sm px-1 py-[1px] text-[9px] uppercase tracking-wider"
+                        style={{ background: `${ACCENT}33`, color: ACCENT }}
+                      >
+                        arbiter
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-[#8a90a0]">{p.model}</span>
+                  <span><CtxBar value={p.ctx} /></span>
+                  <span
+                    className="text-right text-[11px] font-bold tracking-wider"
+                    style={{ color: STATE_COLOR[p.state] }}
+                  >
+                    {p.state === "BLOCKED" && "■ "}
+                    {p.state === "WAITING" && "▮ "}
+                    {p.state === "RUNNING" && "▶ "}
+                    {p.state}
+                  </span>
+                </div>
+              ))}
+
+              {/* console cursor line */}
+              <div className="px-3 py-2 text-[12px] text-[#5a6070]">
+                <span style={{ color: ACCENT }}>scheduler</span>
+                <span className="text-[#3a3f4a]"> &gt; </span>
+                arbitrating write-lease on{" "}
+                <span className="text-[#9aa0b0]">src/auth.ts</span>
+                <span
+                  className="ml-1 inline-block h-[13px] w-[7px] animate-pulse align-middle"
+                  style={{ background: ACCENT }}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* the only "headline" — sits UNDER the console, small-ish */}
+          <div
+            className="border-t px-3 py-5 sm:px-6"
+            style={{ borderColor: "#181b22", background: "#08090c" }}
+          >
+            <p className="text-[20px] leading-snug text-[#eef0f4] sm:text-[26px]">
+              Fifty agents. One repo.{" "}
+              <span style={{ color: ACCENT }}>Atlas decides who writes.</span>
+            </p>
+            <p className="mt-1 text-[12px] text-[#6b7180]">
+              {appConfig.description}
+            </p>
+          </div>
+        </section>
+
+        {/* ══════════════════════════════════════════════════════════════
+            SYSCALLS — horizontal strip of terminal commands
+        ══════════════════════════════════════════════════════════════ */}
+        <section className="mt-4 grid grid-cols-1 border border-[#181b22] sm:grid-cols-2 lg:grid-cols-4">
+          {SYSCALLS.map((s, i) => (
+            <div
+              key={s.call}
+              className="border-[#181b22] px-3 py-3"
+              style={{
+                borderRightWidth: i < SYSCALLS.length - 1 ? 1 : 0,
+                borderBottomWidth: 1,
+              }}
+            >
+              <div className="text-[13px]">
+                <span style={{ color: ACCENT }}>$ </span>
+                <span className="text-[#eef0f4]">{s.call}</span>
+              </div>
+              <div className="mt-1.5 text-[11px] leading-relaxed text-[#6b7180]">
+                {s.desc}
+              </div>
+            </div>
+          ))}
+        </section>
+
+        {/* ══════════════════════════════════════════════════════════════
+            FILE-ARBITRATION DIAGRAM
+        ══════════════════════════════════════════════════════════════ */}
+        <section className="mt-4 border border-[#181b22] bg-[#070809]">
+          <div
+            className="border-b px-3 py-1.5 text-[11px] uppercase tracking-wider"
+            style={{ borderColor: "#181b22", color: "#5a6070" }}
+          >
+            write-lease arbitration · single-writer guarantee
+          </div>
+
+          <div className="grid items-stretch gap-0 px-3 py-6 sm:px-6 lg:grid-cols-[1fr_auto_auto_auto_1fr]">
+            {/* contending agents */}
+            <div className="flex flex-col justify-center gap-2.5">
+              {[
+                { name: "refactor-auth", pid: "0x2b07", verdict: "APPROVED" as const },
+                { name: "write-tests", pid: "0x3c4a", verdict: "QUEUED" as const },
+                { name: "deploy-runner", pid: "0x44d2", verdict: "QUEUED" as const },
+              ].map((a) => (
+                <div
+                  key={a.pid}
+                  className="flex items-center justify-between gap-3 border px-2.5 py-2"
+                  style={{
+                    borderColor: a.verdict === "APPROVED" ? `${ACCENT}66` : "#22262f",
+                    background: a.verdict === "APPROVED" ? `${ACCENT}10` : "transparent",
+                  }}
+                >
+                  <span>
+                    <span className="text-[12px] text-[#dfe2e8]">{a.name}</span>
+                    <span className="ml-2 text-[10px] text-[#5a6070]">{a.pid}</span>
+                  </span>
+                  <span className="text-[#3a3f4a]">→</span>
+                </div>
+              ))}
+            </div>
+
+            {/* arrows in */}
+            <div className="hidden items-center justify-center px-3 text-[#3a3f4a] lg:flex">
+              <span className="text-lg">⇉</span>
+            </div>
+
+            {/* the gate = Atlas */}
+            <div className="my-3 flex flex-col items-center justify-center lg:my-0">
+              <div
+                className="flex h-full min-w-[120px] flex-col items-center justify-center border px-4 py-5"
+                style={{
+                  borderColor: ACCENT,
+                  background: `${ACCENT}0e`,
+                  boxShadow: `0 0 28px ${ACCENT}22`,
+                }}
+              >
+                <div className="text-[10px] uppercase tracking-[0.25em] text-[#6b7180]">
+                  gate
+                </div>
+                <div className="mt-1 text-[15px] font-bold text-[#eef0f4]">ATLAS</div>
+                <div className="mt-1 text-[10px]" style={{ color: ACCENT }}>
+                  mutex::auth
+                </div>
+              </div>
+            </div>
+
+            {/* arrows out */}
+            <div className="hidden items-center justify-center px-3 text-[#3a3f4a] lg:flex">
+              <span className="text-lg">→</span>
+            </div>
+
+            {/* the contested file + verdicts */}
+            <div className="flex flex-col justify-center gap-2.5">
+              <div
+                className="border px-3 py-2.5 text-center"
+                style={{ borderColor: `${ACCENT}66`, background: `${ACCENT}10` }}
+              >
+                <div className="text-[10px] uppercase tracking-wider text-[#5a6070]">
+                  contested node
+                </div>
+                <div className="mt-0.5 text-[14px] text-[#eef0f4]">src/auth.ts</div>
+              </div>
+              <div className="grid grid-cols-3 gap-1.5 text-center text-[10px] uppercase tracking-wider">
+                <div
+                  className="border px-1 py-1.5 font-bold"
+                  style={{ borderColor: `${ACCENT}66`, color: ACCENT, background: `${ACCENT}12` }}
+                >
+                  1 approved
+                </div>
+                <div
+                  className="col-span-2 border px-1 py-1.5"
+                  style={{ borderColor: "#22262f", color: "#6b7180" }}
+                >
+                  2 queued · fifo
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ══════════════════════════════════════════════════════════════
+            METRICS RIBBON
+        ══════════════════════════════════════════════════════════════ */}
+        <section className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1.5 border border-[#181b22] bg-[#08090c] px-3 py-2.5 text-[11px] text-[#6b7180]">
+          <span className="flex items-center gap-1.5">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#3ddc84]" />
+            <span className="text-[#dfe2e8]">0</span> write conflicts in production
+          </span>
+          <span className="text-[#22262f]">│</span>
+          <span>
+            <span className="text-[#dfe2e8]">340ms</span> median arbitration
+          </span>
+          <span className="text-[#22262f]">│</span>
+          <span>
+            <span style={{ color: ACCENT }}>L4</span> isolation
+          </span>
+          <span className="text-[#22262f]">│</span>
+          <span>
+            <span className="text-[#dfe2e8]">8</span> agents supervised · 1 writer
+          </span>
+        </section>
+      </main>
+
+      {/* ══════════════════════════════════════════════════════════════
+          FOOTER — minimal, black, mono
+      ══════════════════════════════════════════════════════════════ */}
+      <footer className="border-t border-[#16191f]">
+        <div className="mx-auto flex max-w-[1180px] flex-col gap-2 px-3 py-4 text-[11px] text-[#5a6070] sm:flex-row sm:items-center sm:justify-between sm:px-4">
+          <span>
+            <span className="text-[#9aa0b0]">{appConfig.name}</span>
+            <span className="mx-1.5 text-[#2a2e38]">·</span>Singapore 🇸🇬
+            <span className="mx-1.5 text-[#2a2e38]">·</span>atlas.sg
+          </span>
           <a
             href="https://abduljaleel.xyz/aletheia/"
             target="_blank"
             rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-[0.25em] px-3 py-1.5 border transition-colors hover:bg-opacity-10"
-            style={{
-              fontFamily: "'JetBrains Mono', 'SF Mono', Menlo, monospace",
-              borderColor: `${ACCENT}40`,
-              color: ACCENT,
-            }}
+            className="transition-colors hover:text-[#eef0f4]"
+            style={{ color: "#6b7180" }}
           >
             Part of the Aletheia stack ↗
           </a>
