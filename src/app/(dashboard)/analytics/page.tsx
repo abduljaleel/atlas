@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -11,30 +12,89 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { modelUsage } from "@/lib/data/models";
+import type { ModelUsage, RequestLog } from "@/lib/data/models";
+import { listUsageLogs } from "@/lib/data/api";
 
 type TimeRange = "24h" | "7d" | "30d";
 
-const multipliers: Record<TimeRange, number> = {
-  "24h": 1,
-  "7d": 7,
-  "30d": 30,
+const rangeMs: Record<TimeRange, number> = {
+  "24h": 24 * 60 * 60 * 1000,
+  "7d": 7 * 24 * 60 * 60 * 1000,
+  "30d": 30 * 24 * 60 * 60 * 1000,
 };
 
-export default function AnalyticsPage() {
-  const [timeRange, setTimeRange] = useState<TimeRange>("24h");
-  const mult = multipliers[timeRange];
+function percentile(sortedValues: number[], p: number): number {
+  if (sortedValues.length === 0) return 0;
+  const index = Math.min(
+    sortedValues.length - 1,
+    Math.floor(p * (sortedValues.length - 1))
+  );
+  return sortedValues[index];
+}
 
-  const data = modelUsage.map((m) => ({
-    ...m,
-    requests: Math.round(m.requests * mult),
-    totalCost: parseFloat((m.totalCost * mult).toFixed(2)),
-    tokensProcessed: Math.round(m.tokensProcessed * mult),
-  }));
+export default function AnalyticsPage() {
+  const [logs, setLogs] = useState<RequestLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [timeRange, setTimeRange] = useState<TimeRange>("24h");
+
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const data = await listUsageLogs(1000);
+        if (!cancelled) setLogs(data);
+      } catch (e) {
+        if (!cancelled)
+          setError(
+            e instanceof Error ? e.message : "Failed to load analytics data"
+          );
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const rangeLogs = useMemo(() => {
+    const cutoff = Date.now() - rangeMs[timeRange];
+    return logs.filter((l) => new Date(l.timestamp).getTime() >= cutoff);
+  }, [logs, timeRange]);
+
+  const data: ModelUsage[] = useMemo(() => {
+    const byModel = new Map<string, RequestLog[]>();
+    for (const log of rangeLogs) {
+      const list = byModel.get(log.model) ?? [];
+      list.push(log);
+      byModel.set(log.model, list);
+    }
+    return Array.from(byModel.entries()).map(([model, modelLogs]) => {
+      const latencies = modelLogs.map((l) => l.latency).sort((a, b) => a - b);
+      return {
+        model,
+        requests: modelLogs.length,
+        totalCost: parseFloat(
+          modelLogs.reduce((sum, l) => sum + l.cost, 0).toFixed(2)
+        ),
+        avgLatency: Math.round(
+          modelLogs.reduce((sum, l) => sum + l.latency, 0) / modelLogs.length
+        ),
+        p95Latency: percentile(latencies, 0.95),
+        tokensProcessed: modelLogs.reduce(
+          (sum, l) => sum + l.tokensIn + l.tokensOut,
+          0
+        ),
+      };
+    });
+  }, [rangeLogs]);
 
   const totalCost = data.reduce((s, m) => s + m.totalCost, 0);
-  const maxCost = Math.max(...data.map((m) => m.totalCost));
-  const maxLatency = Math.max(...data.map((m) => m.p95Latency));
+  const maxCost = data.length
+    ? Math.max(...data.map((m) => m.totalCost))
+    : 0;
 
   // Build latency distribution buckets
   const latencyBuckets = [
@@ -42,26 +102,37 @@ export default function AnalyticsPage() {
     { label: "100-200ms", min: 100, max: 200 },
     { label: "200-300ms", min: 200, max: 300 },
     { label: "300-500ms", min: 300, max: 500 },
-    { label: "500ms+", min: 500, max: 9999 },
+    { label: "500ms+", min: 500, max: Infinity },
   ];
 
-  // Simulate distribution based on avg latency
-  const latencyDist = latencyBuckets.map((bucket) => {
-    const count = data.reduce((sum, m) => {
-      if (m.avgLatency >= bucket.min && m.avgLatency < bucket.max) {
-        return sum + m.requests;
-      }
-      // Spread some traffic to adjacent buckets
-      const dist = Math.abs(m.avgLatency - (bucket.min + bucket.max) / 2);
-      if (dist < 150) {
-        return sum + Math.round(m.requests * 0.15);
-      }
-      return sum;
-    }, 0);
-    return { ...bucket, count };
-  });
+  const latencyDist = latencyBuckets.map((bucket) => ({
+    ...bucket,
+    count: rangeLogs.filter(
+      (l) => l.latency >= bucket.min && l.latency < bucket.max
+    ).length,
+  }));
 
   const maxBucketCount = Math.max(...latencyDist.map((b) => b.count));
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Analytics</h1>
+            <p className="text-muted-foreground">
+              Cost and performance analytics across all model endpoints
+            </p>
+          </div>
+        </div>
+        <Skeleton className="h-72 rounded-xl" />
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Skeleton className="h-64 rounded-xl" />
+          <Skeleton className="h-64 rounded-xl" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -86,6 +157,12 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
+      {error && (
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
       {/* Model Comparison Table */}
       <Card>
         <CardHeader>
@@ -106,6 +183,16 @@ export default function AnalyticsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
+              {data.length === 0 && (
+                <TableRow>
+                  <TableCell
+                    colSpan={6}
+                    className="h-24 text-center text-sm text-muted-foreground"
+                  >
+                    No usage data for this time range yet.
+                  </TableCell>
+                </TableRow>
+              )}
               {data
                 .sort((a, b) => b.requests - a.requests)
                 .map((m) => (
@@ -170,10 +257,15 @@ export default function AnalyticsPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
+              {data.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  No cost data for this time range yet.
+                </p>
+              )}
               {data
                 .sort((a, b) => b.totalCost - a.totalCost)
                 .map((m) => {
-                  const pct = (m.totalCost / maxCost) * 100;
+                  const pct = maxCost > 0 ? (m.totalCost / maxCost) * 100 : 0;
                   return (
                     <div key={m.model} className="space-y-1">
                       <div className="flex items-center justify-between text-sm">

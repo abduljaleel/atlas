@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useEffect, useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -30,11 +31,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { models as initialModels, type Model, type ModelProvider } from "@/lib/data/models";
+import type { Model, ModelProvider } from "@/lib/data/models";
+import { listModels, createModel, updateModel } from "@/lib/data/api";
 import { Plus, Circle } from "lucide-react";
 
 export default function ModelsPage() {
-  const [modelList, setModelList] = useState<Model[]>(initialModels);
+  const [modelList, setModelList] = useState<Model[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [newModel, setNewModel] = useState({
     name: "",
@@ -43,31 +48,53 @@ export default function ModelsPage() {
     endpoint: "",
   });
 
-  function toggleStatus(id: string) {
-    setModelList((prev) =>
-      prev.map((m) =>
-        m.id === id
-          ? { ...m, status: m.status === "active" ? "inactive" : "active" }
-          : m
-      )
-    );
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const data = await listModels();
+        if (!cancelled) setModelList(data);
+      } catch (e) {
+        if (!cancelled)
+          setError(e instanceof Error ? e.message : "Failed to load models");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  async function toggleStatus(id: string) {
+    const target = modelList.find((m) => m.id === id);
+    if (!target) return;
+    setError(null);
+    try {
+      const updated = await updateModel(id, {
+        status: target.status === "active" ? "inactive" : "active",
+      });
+      setModelList((prev) => prev.map((m) => (m.id === id ? updated : m)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update model");
+    }
   }
 
-  function addModel() {
+  async function addModel() {
     if (!newModel.name || !newModel.modelId || !newModel.endpoint) return;
-    const model: Model = {
-      id: `m-${Date.now()}`,
-      name: newModel.name,
-      provider: newModel.provider,
-      modelId: newModel.modelId,
-      endpoint: newModel.endpoint,
-      status: "active",
-      avgLatency: 0,
-      costPer1kTokens: 0,
-    };
-    setModelList((prev) => [...prev, model]);
-    setNewModel({ name: "", provider: "OpenAI", modelId: "", endpoint: "" });
-    setDialogOpen(false);
+    setSaving(true);
+    setError(null);
+    try {
+      const created = await createModel(newModel);
+      setModelList((prev) => [...prev, created]);
+      setNewModel({ name: "", provider: "OpenAI", modelId: "", endpoint: "" });
+      setDialogOpen(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to add model");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -148,73 +175,103 @@ export default function ModelsPage() {
                   }
                 />
               </div>
+              {error && (
+                <p className="text-sm text-destructive">{error}</p>
+              )}
             </div>
             <DialogFooter>
-              <Button onClick={addModel}>Add Model</Button>
+              <Button onClick={addModel} disabled={saving}>
+                {saving ? "Adding..." : "Add Model"}
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
       </div>
 
+      {error && !dialogOpen && (
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Model</TableHead>
-                <TableHead>Provider</TableHead>
-                <TableHead>Model ID</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Avg Latency</TableHead>
-                <TableHead className="text-right">Cost / 1K Tokens</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {modelList.map((model) => (
-                <TableRow key={model.id}>
-                  <TableCell className="font-medium">{model.name}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">{model.provider}</Badge>
-                  </TableCell>
-                  <TableCell>
-                    <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
-                      {model.modelId}
-                    </code>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1.5">
-                      <Circle
-                        className={`h-2 w-2 fill-current ${
-                          model.status === "active"
-                            ? "text-green-500"
-                            : "text-muted-foreground"
-                        }`}
-                      />
-                      <span className="text-sm capitalize">{model.status}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {model.avgLatency > 0 ? `${model.avgLatency}ms` : "—"}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {model.costPer1kTokens > 0
-                      ? `$${model.costPer1kTokens.toFixed(5)}`
-                      : "—"}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => toggleStatus(model.id)}
-                    >
-                      {model.status === "active" ? "Deactivate" : "Activate"}
-                    </Button>
-                  </TableCell>
-                </TableRow>
+          {loading ? (
+            <div className="space-y-3 p-6">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-10 w-full" />
               ))}
-            </TableBody>
-          </Table>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Model</TableHead>
+                  <TableHead>Provider</TableHead>
+                  <TableHead>Model ID</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Avg Latency</TableHead>
+                  <TableHead className="text-right">Cost / 1K Tokens</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {modelList.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={7}
+                      className="h-24 text-center text-sm text-muted-foreground"
+                    >
+                      No models registered yet. Add a model to get started.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  modelList.map((model) => (
+                    <TableRow key={model.id}>
+                      <TableCell className="font-medium">{model.name}</TableCell>
+                      <TableCell>
+                        <Badge variant="secondary">{model.provider}</Badge>
+                      </TableCell>
+                      <TableCell>
+                        <code className="text-xs bg-muted px-1.5 py-0.5 rounded">
+                          {model.modelId}
+                        </code>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1.5">
+                          <Circle
+                            className={`h-2 w-2 fill-current ${
+                              model.status === "active"
+                                ? "text-green-500"
+                                : "text-muted-foreground"
+                            }`}
+                          />
+                          <span className="text-sm capitalize">{model.status}</span>
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {model.avgLatency > 0 ? `${model.avgLatency}ms` : "—"}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {model.costPer1kTokens > 0
+                          ? `$${model.costPer1kTokens.toFixed(5)}`
+                          : "—"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleStatus(model.id)}
+                        >
+                          {model.status === "active" ? "Deactivate" : "Activate"}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>

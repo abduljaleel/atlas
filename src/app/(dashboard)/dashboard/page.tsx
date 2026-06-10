@@ -1,8 +1,17 @@
 "use client";
 
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { hourlyUsage, modelUsage, alerts } from "@/lib/data/models";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  listUsageLogs,
+  listAlerts,
+  listModels,
+  seedDemoData,
+} from "@/lib/data/api";
+import type { Alert, Model, RequestLog } from "@/lib/data/models";
 import {
   Activity,
   Clock,
@@ -10,13 +19,122 @@ import {
   AlertTriangle,
   AlertCircle,
   Info,
+  Database,
 } from "lucide-react";
 
 export default function DashboardPage() {
-  const totalRequests = hourlyUsage.reduce((sum, h) => sum + h.requests, 0);
-  const avgLatency = 247;
-  const totalCost = 233.85;
-  const errorRate = 2.4;
+  const [logs, setLogs] = useState<RequestLog[]>([]);
+  const [alertList, setAlertList] = useState<Alert[]>([]);
+  const [modelList, setModelList] = useState<Model[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [seeding, setSeeding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const loadData = useCallback(async () => {
+    try {
+      setError(null);
+      const [logsData, alertsData, modelsData] = await Promise.all([
+        listUsageLogs(1000),
+        listAlerts(),
+        listModels(),
+      ]);
+      setLogs(logsData);
+      setAlertList(alertsData);
+      setModelList(modelsData);
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Failed to load dashboard data"
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  async function handleSeed() {
+    setSeeding(true);
+    setError(null);
+    try {
+      await seedDemoData();
+      await loadData();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to load demo data");
+    } finally {
+      setSeeding(false);
+    }
+  }
+
+  const logs24h = useMemo(() => {
+    const cutoff = Date.now() - 86_400_000;
+    return logs.filter((l) => new Date(l.timestamp).getTime() >= cutoff);
+  }, [logs]);
+
+  const hourlyUsage = useMemo(() => {
+    const buckets = Array.from({ length: 24 }, (_, i) => ({
+      hour: `${String(i).padStart(2, "0")}:00`,
+      requests: 0,
+    }));
+    for (const log of logs24h) {
+      const h = new Date(log.timestamp).getHours();
+      buckets[h].requests += 1;
+    }
+    return buckets;
+  }, [logs24h]);
+
+  const modelBreakdown = useMemo(() => {
+    const byModel = new Map<string, number>();
+    for (const log of logs24h) {
+      byModel.set(log.model, (byModel.get(log.model) ?? 0) + 1);
+    }
+    return Array.from(byModel.entries()).map(([model, requests]) => ({
+      model,
+      requests,
+    }));
+  }, [logs24h]);
+
+  const totalRequests = logs24h.length;
+  const avgLatency = logs24h.length
+    ? Math.round(logs24h.reduce((sum, l) => sum + l.latency, 0) / logs24h.length)
+    : 0;
+  const totalCost = logs24h.reduce((sum, l) => sum + l.cost, 0);
+  const errorRate = logs24h.length
+    ? parseFloat(
+        (
+          (logs24h.filter((l) => l.status === "error").length /
+            logs24h.length) *
+          100
+        ).toFixed(1)
+      )
+    : 0;
+
+  const isEmpty =
+    !loading && modelList.length === 0 && logs.length === 0;
+
+  if (loading) {
+    return (
+      <div className="space-y-6">
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Operations overview — last 24 hours
+          </p>
+        </div>
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-28 rounded-xl" />
+          ))}
+        </div>
+        <div className="grid gap-6 lg:grid-cols-2">
+          <Skeleton className="h-64 rounded-xl" />
+          <Skeleton className="h-64 rounded-xl" />
+        </div>
+        <Skeleton className="h-48 rounded-xl" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -26,6 +144,30 @@ export default function DashboardPage() {
           Operations overview — last 24 hours
         </p>
       </div>
+
+      {error && (
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
+      {isEmpty && (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center gap-3 py-10 text-center">
+            <Database className="h-8 w-8 text-muted-foreground" />
+            <div>
+              <p className="font-medium">No routing data yet</p>
+              <p className="text-sm text-muted-foreground">
+                Connect gateway traffic to your org, or load demo data to
+                explore Atlas.
+              </p>
+            </div>
+            <Button onClick={handleSeed} disabled={seeding}>
+              {seeding ? "Loading demo data..." : "Load demo data"}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Metrics */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
@@ -66,7 +208,8 @@ export default function DashboardPage() {
           <CardContent>
             <div className="flex items-end gap-[3px] h-32">
               {hourlyUsage.map((h) => {
-                const max = Math.max(...hourlyUsage.map((u) => u.requests));
+                const max =
+                  Math.max(...hourlyUsage.map((u) => u.requests)) || 1;
                 const height = (h.requests / max) * 100;
                 return (
                   <div
@@ -103,10 +246,16 @@ export default function DashboardPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-3">
-              {modelUsage
+              {modelBreakdown.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  No requests routed in the last 24 hours.
+                </p>
+              )}
+              {modelBreakdown
                 .sort((a, b) => b.requests - a.requests)
                 .map((m) => {
-                  const max = Math.max(...modelUsage.map((u) => u.requests));
+                  const max =
+                    Math.max(...modelBreakdown.map((u) => u.requests)) || 1;
                   const pct = (m.requests / max) * 100;
                   return (
                     <div key={m.model} className="space-y-1">
@@ -137,7 +286,12 @@ export default function DashboardPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {alerts.map((alert) => {
+            {alertList.length === 0 && (
+              <p className="text-sm text-muted-foreground">
+                No active alerts.
+              </p>
+            )}
+            {alertList.map((alert) => {
               const Icon =
                 alert.severity === "error"
                   ? AlertCircle

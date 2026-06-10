@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -27,19 +28,42 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
-import { requestLogs, type RequestLog } from "@/lib/data/models";
+import type { RequestLog } from "@/lib/data/models";
+import { listUsageLogs } from "@/lib/data/api";
 import { Search, X } from "lucide-react";
 
 export default function LogsPage() {
+  const [requestLogs, setRequestLogs] = useState<RequestLog[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [modelFilter, setModelFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedLog, setSelectedLog] = useState<RequestLog | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const data = await listUsageLogs(500);
+        if (!cancelled) setRequestLogs(data);
+      } catch (e) {
+        if (!cancelled)
+          setError(e instanceof Error ? e.message : "Failed to load logs");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const uniqueModels = useMemo(
     () => [...new Set(requestLogs.map((l) => l.model))],
-    []
+    [requestLogs]
   );
 
   const filtered = useMemo(() => {
@@ -58,7 +82,7 @@ export default function LogsPage() {
       }
       return true;
     });
-  }, [search, modelFilter, statusFilter]);
+  }, [requestLogs, search, modelFilter, statusFilter]);
 
   function openDetail(log: RequestLog) {
     setSelectedLog(log);
@@ -73,6 +97,12 @@ export default function LogsPage() {
           Inspect individual requests routed through the Neurl gateway
         </p>
       </div>
+
+      {error && (
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
 
       {/* Filters */}
       <div className="flex items-center gap-3 flex-wrap">
@@ -130,67 +160,88 @@ export default function LogsPage() {
       {/* Logs Table */}
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Timestamp</TableHead>
-                <TableHead>Model</TableHead>
-                <TableHead className="text-right">Tokens In</TableHead>
-                <TableHead className="text-right">Tokens Out</TableHead>
-                <TableHead className="text-right">Latency</TableHead>
-                <TableHead className="text-right">Cost</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Policy</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.slice(0, 50).map((log) => (
-                <TableRow
-                  key={log.id}
-                  className="cursor-pointer"
-                  onClick={() => openDetail(log)}
-                >
-                  <TableCell className="text-xs text-muted-foreground font-mono">
-                    {new Date(log.timestamp).toLocaleString(undefined, {
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                      second: "2-digit",
-                    })}
-                  </TableCell>
-                  <TableCell className="font-medium text-sm">
-                    {log.model}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums text-sm">
-                    {log.tokensIn.toLocaleString()}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums text-sm">
-                    {log.tokensOut.toLocaleString()}
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums text-sm">
-                    {log.latency}ms
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums text-sm">
-                    ${log.cost.toFixed(4)}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        log.status === "success" ? "secondary" : "destructive"
-                      }
-                      className="text-[10px]"
-                    >
-                      {log.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-xs text-muted-foreground max-w-[160px] truncate">
-                    {log.policyMatched || "—"}
-                  </TableCell>
-                </TableRow>
+          {loading ? (
+            <div className="space-y-3 p-6">
+              {Array.from({ length: 8 }).map((_, i) => (
+                <Skeleton key={i} className="h-8 w-full" />
               ))}
-            </TableBody>
-          </Table>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Timestamp</TableHead>
+                  <TableHead>Model</TableHead>
+                  <TableHead className="text-right">Tokens In</TableHead>
+                  <TableHead className="text-right">Tokens Out</TableHead>
+                  <TableHead className="text-right">Latency</TableHead>
+                  <TableHead className="text-right">Cost</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead>Policy</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={8}
+                      className="h-24 text-center text-sm text-muted-foreground"
+                    >
+                      {requestLogs.length === 0
+                        ? "No requests logged yet."
+                        : "No requests match the current filters."}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  filtered.slice(0, 50).map((log) => (
+                    <TableRow
+                      key={log.id}
+                      className="cursor-pointer"
+                      onClick={() => openDetail(log)}
+                    >
+                      <TableCell className="text-xs text-muted-foreground font-mono">
+                        {new Date(log.timestamp).toLocaleString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                        })}
+                      </TableCell>
+                      <TableCell className="font-medium text-sm">
+                        {log.model}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-sm">
+                        {log.tokensIn.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-sm">
+                        {log.tokensOut.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-sm">
+                        {log.latency}ms
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-sm">
+                        ${log.cost.toFixed(4)}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            log.status === "success" ? "secondary" : "destructive"
+                          }
+                          className="text-[10px]"
+                        >
+                          {log.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-xs text-muted-foreground max-w-[160px] truncate">
+                        {log.policyMatched || "—"}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
 

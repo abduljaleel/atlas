@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -23,38 +24,66 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { apiKeys as initialKeys, type ApiKey } from "@/lib/data/models";
+import type { ApiKey } from "@/lib/data/models";
+import { listApiKeys, createApiKey, updateApiKey } from "@/lib/data/api";
 import { Plus, Copy, AlertTriangle } from "lucide-react";
 
 export default function KeysPage() {
-  const [keys, setKeys] = useState<ApiKey[]>(initialKeys);
+  const [keys, setKeys] = useState<ApiKey[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [generatedKey, setGeneratedKey] = useState<string | null>(null);
   const [newKeyName, setNewKeyName] = useState("");
   const [newKeyRateLimit, setNewKeyRateLimit] = useState("100");
   const [copied, setCopied] = useState(false);
 
-  function generateKey() {
-    if (!newKeyName) return;
-    const fullKey = `sk-nr-${newKeyName.toLowerCase().replace(/\s+/g, "-")}-${crypto.randomUUID().slice(0, 32)}`;
-    const prefix = `sk-nr-****${fullKey.slice(-4)}`;
-    const key: ApiKey = {
-      id: `k-${Date.now()}`,
-      name: newKeyName,
-      prefix,
-      createdAt: new Date().toISOString().split("T")[0],
-      lastUsed: null,
-      status: "active",
-      rateLimit: parseInt(newKeyRateLimit, 10) || 100,
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const data = await listApiKeys();
+        if (!cancelled) setKeys(data);
+      } catch (e) {
+        if (!cancelled)
+          setError(e instanceof Error ? e.message : "Failed to load API keys");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+    load();
+    return () => {
+      cancelled = true;
     };
-    setKeys((prev) => [key, ...prev]);
-    setGeneratedKey(fullKey);
+  }, []);
+
+  async function generateKey() {
+    if (!newKeyName) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const { apiKey, fullKey } = await createApiKey({
+        name: newKeyName,
+        rateLimit: parseInt(newKeyRateLimit, 10) || 100,
+      });
+      setKeys((prev) => [apiKey, ...prev]);
+      setGeneratedKey(fullKey);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to generate key");
+    } finally {
+      setSaving(false);
+    }
   }
 
-  function revokeKey(id: string) {
-    setKeys((prev) =>
-      prev.map((k) => (k.id === id ? { ...k, status: "revoked" } : k))
-    );
+  async function revokeKey(id: string) {
+    setError(null);
+    try {
+      const updated = await updateApiKey(id, { status: "revoked" });
+      setKeys((prev) => prev.map((k) => (k.id === id ? updated : k)));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to revoke key");
+    }
   }
 
   function closeDialog() {
@@ -119,9 +148,14 @@ export default function KeysPage() {
                       onChange={(e) => setNewKeyRateLimit(e.target.value)}
                     />
                   </div>
+                  {error && (
+                    <p className="text-sm text-destructive">{error}</p>
+                  )}
                 </div>
                 <DialogFooter>
-                  <Button onClick={generateKey}>Generate</Button>
+                  <Button onClick={generateKey} disabled={saving}>
+                    {saving ? "Generating..." : "Generate"}
+                  </Button>
                 </DialogFooter>
               </>
             ) : (
@@ -162,63 +196,89 @@ export default function KeysPage() {
         </Dialog>
       </div>
 
+      {error && !dialogOpen && (
+        <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+
       <Card>
         <CardContent className="p-0">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Key</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Last Used</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="text-right">Rate Limit</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {keys.map((key) => (
-                <TableRow key={key.id}>
-                  <TableCell className="font-medium">{key.name}</TableCell>
-                  <TableCell>
-                    <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">
-                      {key.prefix}
-                    </code>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {key.createdAt}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {key.lastUsed || "Never"}
-                  </TableCell>
-                  <TableCell>
-                    <Badge
-                      variant={
-                        key.status === "active" ? "default" : "destructive"
-                      }
-                    >
-                      {key.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right tabular-nums">
-                    {key.rateLimit}/min
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {key.status === "active" && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => revokeKey(key.id)}
-                      >
-                        Revoke
-                      </Button>
-                    )}
-                  </TableCell>
-                </TableRow>
+          {loading ? (
+            <div className="space-y-3 p-6">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Skeleton key={i} className="h-10 w-full" />
               ))}
-            </TableBody>
-          </Table>
+            </div>
+          ) : (
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Name</TableHead>
+                  <TableHead>Key</TableHead>
+                  <TableHead>Created</TableHead>
+                  <TableHead>Last Used</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Rate Limit</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {keys.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={7}
+                      className="h-24 text-center text-sm text-muted-foreground"
+                    >
+                      No API keys yet. Generate a key to authenticate with the
+                      gateway.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  keys.map((key) => (
+                    <TableRow key={key.id}>
+                      <TableCell className="font-medium">{key.name}</TableCell>
+                      <TableCell>
+                        <code className="text-xs bg-muted px-1.5 py-0.5 rounded font-mono">
+                          {key.prefix}
+                        </code>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {key.createdAt}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {key.lastUsed || "Never"}
+                      </TableCell>
+                      <TableCell>
+                        <Badge
+                          variant={
+                            key.status === "active" ? "default" : "destructive"
+                          }
+                        >
+                          {key.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {key.rateLimit}/min
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {key.status === "active" && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-destructive hover:text-destructive"
+                            onClick={() => revokeKey(key.id)}
+                          >
+                            Revoke
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  ))
+                )}
+              </TableBody>
+            </Table>
+          )}
         </CardContent>
       </Card>
     </div>
