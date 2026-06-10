@@ -72,6 +72,17 @@ export default function DashboardPage() {
     return logs.filter((l) => new Date(l.timestamp).getTime() >= cutoff);
   }, [logs]);
 
+  // Prior 24h window (24-48h ago) for period-over-period deltas
+  const logsPrev24h = useMemo(() => {
+    const now = Date.now();
+    const start = now - 2 * 86_400_000;
+    const end = now - 86_400_000;
+    return logs.filter((l) => {
+      const t = new Date(l.timestamp).getTime();
+      return t >= start && t < end;
+    });
+  }, [logs]);
+
   const hourlyUsage = useMemo(() => {
     const buckets = Array.from({ length: 24 }, (_, i) => ({
       hour: `${String(i).padStart(2, "0")}:00`,
@@ -109,6 +120,46 @@ export default function DashboardPage() {
         ).toFixed(1)
       )
     : 0;
+
+  // Real deltas vs the prior 24h window; null when there is no prior data
+  const prevTotalRequests = logsPrev24h.length;
+  const prevAvgLatency = logsPrev24h.length
+    ? Math.round(
+        logsPrev24h.reduce((sum, l) => sum + l.latency, 0) / logsPrev24h.length
+      )
+    : 0;
+  const prevTotalCost = logsPrev24h.reduce((sum, l) => sum + l.cost, 0);
+  const prevErrorRate = logsPrev24h.length
+    ? (logsPrev24h.filter((l) => l.status === "error").length /
+        logsPrev24h.length) *
+      100
+    : 0;
+
+  const requestsDelta =
+    prevTotalRequests > 0
+      ? `${totalRequests >= prevTotalRequests ? "+" : ""}${(
+          ((totalRequests - prevTotalRequests) / prevTotalRequests) *
+          100
+        ).toFixed(1)}% vs yesterday`
+      : null;
+  const latencyDelta =
+    prevTotalRequests > 0
+      ? `${avgLatency >= prevAvgLatency ? "+" : ""}${
+          avgLatency - prevAvgLatency
+        }ms vs yesterday`
+      : null;
+  const costDelta =
+    prevTotalRequests > 0
+      ? `${totalCost >= prevTotalCost ? "+" : "-"}$${Math.abs(
+          totalCost - prevTotalCost
+        ).toFixed(2)} vs yesterday`
+      : null;
+  const errorRateDelta =
+    prevTotalRequests > 0
+      ? `${errorRate >= prevErrorRate ? "+" : ""}${(
+          errorRate - prevErrorRate
+        ).toFixed(1)}% vs yesterday`
+      : null;
 
   const isEmpty =
     !loading && modelList.length === 0 && logs.length === 0;
@@ -169,31 +220,33 @@ export default function DashboardPage() {
         </Card>
       )}
 
+      {!isEmpty && (
+        <>
       {/* Metrics */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <MetricCard
           title="Total Requests (24h)"
           value={totalRequests.toLocaleString()}
           icon={<Activity className="h-4 w-4 text-muted-foreground" />}
-          delta="+12.3% vs yesterday"
+          delta={requestsDelta}
         />
         <MetricCard
           title="Avg Latency"
           value={`${avgLatency}ms`}
           icon={<Clock className="h-4 w-4 text-muted-foreground" />}
-          delta="-8ms vs yesterday"
+          delta={latencyDelta}
         />
         <MetricCard
           title="Total Cost (24h)"
           value={`$${totalCost.toFixed(2)}`}
           icon={<DollarSign className="h-4 w-4 text-muted-foreground" />}
-          delta="+$18.40 vs yesterday"
+          delta={costDelta}
         />
         <MetricCard
           title="Error Rate"
           value={`${errorRate}%`}
           icon={<AlertTriangle className="h-4 w-4 text-muted-foreground" />}
-          delta="-0.3% vs yesterday"
+          delta={errorRateDelta}
         />
       </div>
 
@@ -335,6 +388,8 @@ export default function DashboardPage() {
           </div>
         </CardContent>
       </Card>
+        </>
+      )}
     </div>
   );
 }
@@ -348,7 +403,7 @@ function MetricCard({
   title: string;
   value: string;
   icon: React.ReactNode;
-  delta: string;
+  delta: string | null;
 }) {
   return (
     <Card>
@@ -358,7 +413,9 @@ function MetricCard({
       </CardHeader>
       <CardContent>
         <div className="text-2xl font-bold tabular-nums">{value}</div>
-        <p className="text-xs text-muted-foreground mt-1">{delta}</p>
+        {delta && (
+          <p className="text-xs text-muted-foreground mt-1">{delta}</p>
+        )}
       </CardContent>
     </Card>
   );

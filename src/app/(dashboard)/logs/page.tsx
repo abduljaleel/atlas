@@ -32,6 +32,8 @@ import type { RequestLog } from "@/lib/data/models";
 import { listUsageLogs } from "@/lib/data/api";
 import { Search, X } from "lucide-react";
 
+const PAGE_SIZE = 50;
+
 export default function LogsPage() {
   const [requestLogs, setRequestLogs] = useState<RequestLog[]>([]);
   const [loading, setLoading] = useState(true);
@@ -41,6 +43,12 @@ export default function LogsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedLog, setSelectedLog] = useState<RequestLog | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+
+  // Reset pagination whenever the filters change
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [search, modelFilter, statusFilter]);
 
   useEffect(() => {
     let cancelled = false;
@@ -153,7 +161,9 @@ export default function LogsPage() {
           </Button>
         )}
         <span className="text-xs text-muted-foreground ml-auto">
-          {filtered.length} results
+          {filtered.length > visibleCount
+            ? `Showing ${Math.min(visibleCount, filtered.length)} of ${filtered.length} results`
+            : `${filtered.length} results`}
         </span>
       </div>
 
@@ -193,7 +203,7 @@ export default function LogsPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filtered.slice(0, 50).map((log) => (
+                  filtered.slice(0, visibleCount).map((log) => (
                     <TableRow
                       key={log.id}
                       className="cursor-pointer"
@@ -241,6 +251,19 @@ export default function LogsPage() {
                 )}
               </TableBody>
             </Table>
+          )}
+          {!loading && filtered.length > visibleCount && (
+            <div className="flex items-center justify-center border-t p-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  setVisibleCount((count) => count + PAGE_SIZE)
+                }
+              >
+                Show {Math.min(PAGE_SIZE, filtered.length - visibleCount)} more
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>

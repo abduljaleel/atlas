@@ -27,6 +27,51 @@ export async function getCtx() {
   return { supabase, userId: user.id, orgId: profile!.org_id as string };
 }
 
+// ─── Profile ─────────────────────────────────────────────
+
+export async function getProfile(): Promise<{
+  email: string;
+  fullName: string;
+}> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", user.id)
+    .single();
+  return {
+    email: user.email ?? "",
+    fullName:
+      (profile?.full_name as string | null) ??
+      (user.user_metadata?.full_name as string | undefined) ??
+      "",
+  };
+}
+
+export async function updateProfileName(fullName: string): Promise<void> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) throw new Error("Not authenticated");
+
+  // Persist to both auth metadata and the profiles row.
+  const { error: authError } = await supabase.auth.updateUser({
+    data: { full_name: fullName },
+  });
+  if (authError) throw new Error(authError.message);
+
+  const { error: profileError } = await supabase
+    .from("profiles")
+    .update({ full_name: fullName })
+    .eq("id", user.id);
+  if (profileError) throw new Error(profileError.message);
+}
+
 // ─── DB row types (snake_case) ───────────────────────────
 
 type ModelMetadata = {

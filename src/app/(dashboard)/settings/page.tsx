@@ -1,6 +1,6 @@
 "use client";
 
-import { createClient } from "@/lib/supabase/client";
+import { getProfile, updateProfileName } from "@/lib/data/api";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,39 +8,49 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator";
 import { useState, useEffect } from "react";
 
+type Message = { type: "success" | "error"; text: string };
+
 export default function SettingsPage() {
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState("");
-  const supabase = createClient();
+  const [message, setMessage] = useState<Message | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     async function loadProfile() {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setEmail(user.email || "");
-        setFullName(user.user_metadata?.full_name || "");
+      try {
+        const profile = await getProfile();
+        if (!cancelled) {
+          setEmail(profile.email);
+          setFullName(profile.fullName);
+        }
+      } catch {
+        // Not authenticated — middleware will redirect.
       }
     }
     loadProfile();
-  }, [supabase]);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function handleUpdateProfile(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
-    setMessage("");
+    setMessage(null);
 
-    const { error } = await supabase.auth.updateUser({
-      data: { full_name: fullName },
-    });
-
-    if (error) {
-      setMessage(error.message);
-    } else {
-      setMessage("Profile updated successfully");
+    try {
+      await updateProfileName(fullName);
+      setMessage({ type: "success", text: "Profile updated successfully" });
+    } catch (err) {
+      setMessage({
+        type: "error",
+        text: err instanceof Error ? err.message : "Failed to update profile",
+      });
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
   }
 
   return (
@@ -58,7 +68,15 @@ export default function SettingsPage() {
         <CardContent>
           <form onSubmit={handleUpdateProfile} className="space-y-4 max-w-md">
             {message && (
-              <div className="rounded-md bg-muted p-3 text-sm">{message}</div>
+              <div
+                className={
+                  message.type === "error"
+                    ? "rounded-md border border-destructive/50 bg-destructive/10 p-3 text-sm text-destructive"
+                    : "rounded-md border border-emerald-500/50 bg-emerald-500/10 p-3 text-sm text-emerald-600 dark:text-emerald-400"
+                }
+              >
+                {message.text}
+              </div>
             )}
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>

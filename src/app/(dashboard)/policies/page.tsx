@@ -365,7 +365,7 @@ export default function PoliciesPage() {
         </Card>
       ) : (
         <div className="space-y-3">
-          {policyList
+          {[...policyList]
             .sort((a, b) => a.priority - b.priority)
             .map((policy) => (
               <Card key={policy.id}>
